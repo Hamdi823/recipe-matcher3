@@ -1,0 +1,50 @@
+name: Android APK Derle
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Kodu al
+        uses: actions/checkout@v4
+
+      - name: Node.js kur
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Java 21 kur
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Web dosyalarını hazırla
+        run: |
+          mkdir -p www
+          cp index.html www/
+          [ -f manifest.json ] && cp manifest.json www/ || true
+
+      - name: Capacitor projesi oluştur
+        run: |
+          npm init -y
+          npm install @capacitor/core @capacitor/cli @capacitor/android
+          npx cap init "Mutfak Sefi" com.mutfaksefi.app --web-dir www
+          npx cap add android
+          npx cap sync android
+
+      - name: APK derle (debug)
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: APK'yı yükle
+        uses: actions/upload-artifact@v4
+        with:
+          name: Mutfak-Sefi-APK
+          path: android/app/build/outputs/apk/debug/app-debug.apk

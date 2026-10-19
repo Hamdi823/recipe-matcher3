@@ -13,11 +13,14 @@ steps:
       distribution: 'temurin'
       java-version: '17'
 
-  - name: 4. Google Bubblewrap CLI Kur
-    run: npm install -g @bubblewrap/cli
+  - name: 4. Bubblewrap CLI Kur ve Ayarla
+    run: |
+      npm install -g @bubblewrap/cli
+      # Sunucunun hata vermemesi için arka planda gerekli Android ayar dosyasını (config) oluşturuyoruz
+      mkdir -p ~/.bubblewrap
+      echo "{\"jdkPath\":\"${JAVA_HOME}\", \"androidSdkPath\":\"${ANDROID_HOME}\"}" > ~/.bubblewrap/config.json
 
   - name: 5. Android Uygulama İmzası (Keystore) Oluştur
-    # Uygulamanın telefonlara yüklenebilmesi için güvenlik sertifikası oluştururuz
     run: keytool -genkey -v -keystore android.keystore -alias android -keyalg RSA -keysize 2048 -validity 10000 -storepass password123 -keypass password123 -dname "CN=MutfakSefi, O=GitHub, C=TR"
 
   - name: 6. Android Uygulama Ayarlarını (Manifest) Yapılandır
@@ -50,7 +53,8 @@ steps:
       EOF
 
   - name: 7. APK Dosyasını Derle
-    run: bubblewrap build --skipPwaValidation --keystorePassword password123 --keyPassword password123
+    # Baştaki 'yes |' komutu, sunucunun sorabileceği her türlü onay sorusuna otomatik 'Y' (Evet) basmasını sağlar.
+    run: yes | bubblewrap build --skipPwaValidation --keystorePassword password123 --keyPassword password123
 
   - name: 8. APK'yı İndirilebilir Olarak Yükle
     uses: actions/upload-artifact@v4

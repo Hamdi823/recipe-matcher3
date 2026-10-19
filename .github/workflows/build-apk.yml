@@ -1,63 +1,55 @@
-steps:
-  - name: 1. Çekirdek Kodları Al
-    uses: actions/checkout@v4
+name: Android APK Derle
 
-  - name: 2. Node.js Kur (Altyapı için)
-    uses: actions/setup-node@v4
-    with:
-      node-version: '18'
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
 
-  - name: 3. Java JDK Kur (Android için)
-    uses: actions/setup-java@v3
-    with:
-      distribution: 'temurin'
-      java-version: '17'
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      
+name: Kodu al
+      uses: actions/checkout@v4
 
-  - name: 4. Bubblewrap CLI Kur ve Ayarla
-    run: |
-      npm install -g @bubblewrap/cli
-      # Sunucunun hata vermemesi için arka planda gerekli Android ayar dosyasını (config) oluşturuyoruz
-      mkdir -p ~/.bubblewrap
-      echo "{\"jdkPath\":\"${JAVA_HOME}\", \"androidSdkPath\":\"${ANDROID_HOME}\"}" > ~/.bubblewrap/config.json
+      
+name: Node.js kur
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
 
-  - name: 5. Android Uygulama İmzası (Keystore) Oluştur
-    run: keytool -genkey -v -keystore android.keystore -alias android -keyalg RSA -keysize 2048 -validity 10000 -storepass password123 -keypass password123 -dname "CN=MutfakSefi, O=GitHub, C=TR"
+      
+name: Java 21 kur
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '21'
 
-  - name: 6. Android Uygulama Ayarlarını (Manifest) Yapılandır
-    run: |
-      cat << EOF > twa-manifest.json
-      {
-        "packageId": "com.mutfaksefi.app",
-        "host": "${{ github.repository_owner }}.github.io",
-        "name": "Mutfak Şefi",
-        "launcherName": "Mutfak Şefi",
-        "themeColor": "#f97316",
-        "navigationColor": "#ffffff",
-        "backgroundColor": "#fff7ed",
-        "startUrl": "/${{ github.event.repository.name }}/",
-        "iconUrl": "https://cdn-icons-png.flaticon.com/512/3565/3565418.png",
-        "maskableIconUrl": "https://cdn-icons-png.flaticon.com/512/3565/3565418.png",
-        "splashScreenFadeOutDuration": 300,
-        "signKey": {
-          "path": "android.keystore",
-          "alias": "android"
-        },
-        "appVersionName": "1.0.0",
-        "appVersionCode": 1,
-        "shortcuts": [],
-        "generatorApp": "bubblewrap-cli",
-        "webManifestUrl": "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/manifest.json",
-        "fallbackType": "customtabs",
-        "features": {}
-      }
-      EOF
+      
+name: Web dosyalarını hazırla
+      run: |
+        mkdir -p www
+        cp index.html www/[ -f manifest.json ] && cp manifest.json www/ || true
 
-  - name: 7. APK Dosyasını Derle
-    # Baştaki 'yes |' komutu, sunucunun sorabileceği her türlü onay sorusuna otomatik 'Y' (Evet) basmasını sağlar.
-    run: yes | bubblewrap build --skipPwaValidation --keystorePassword password123 --keyPassword password123
+      
+name: Capacitor projesi oluştur
+      run: |
+        npm init -y
+        npm install @capacitor/core @capacitor/cli @capacitor/android
+        npx cap init "Mutfak Sefi" com.mutfaksefi.app --web-dir www
+        npx cap add android
+        npx cap sync android
 
-  - name: 8. APK'yı İndirilebilir Olarak Yükle
-    uses: actions/upload-artifact@v4
-    with:
-      name: Mutfak-Sefi-APK
-      path: app-release-signed.apk
+      
+name: APK derle (debug)
+      working-directory: android
+      run: |
+        chmod +x gradlew./gradlew assembleDebug
+
+      
+name: APK'yı yükle
+      uses: actions/upload-artifact@v4
+      with:
+        name: Mutfak-Sefi-APK
+        path: android/app/build/outputs/apk/debug/app-debug.apk

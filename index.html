@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <!-- PWA ve Android Uygulama Ayarları -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#f97316">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/3565/3565418.png">
+
+    <title>Kitchen Chef | Recipe Finder</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Poppins', sans-serif; }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .recipe-card {
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .recipe-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+        /* Hide scrollbar for ingredient tags but allow scrolling */
+        .hide-scroll::-webkit-scrollbar { display: none; }
+        .hide-scroll { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="bg-orange-50 min-h-screen text-stone-800 relative">
+
+    <!-- Top Navigation & Language Toggle -->
+    <nav class="w-full p-4 flex justify-between items-center max-w-6xl mx-auto">
+        <div class="flex items-center gap-2">
+            <svg class="w-8 h-8 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+            <span class="text-xl font-bold text-orange-900 tracking-tight" id="ui-brand">Kitchen Chef</span>
+        </div>
+        <div class="flex bg-white rounded-full p-1 shadow-sm border border-orange-100">
+            <button id="btn-en" class="px-4 py-1 rounded-full text-sm font-medium transition-colors bg-orange-500 text-white" onclick="setLanguage('en')">EN</button>
+            <button id="btn-tr" class="px-4 py-1 rounded-full text-sm font-medium transition-colors text-stone-500 hover:text-orange-500" onclick="setLanguage('tr')">TR</button>
+        </div>
+    </nav>
+
+    <!-- Main Hero / Input Section -->
+    <header class="max-w-4xl mx-auto text-center px-4 pt-12 pb-8">
+        <h1 class="text-4xl md:text-5xl font-bold text-orange-900 mb-4" id="ui-title">What's in your kitchen?</h1>
+        <p class="text-lg text-stone-600 mb-8" id="ui-subtitle">Select ingredients you have and we'll suggest what you can cook.</p>
+
+        <div class="glass-panel p-6 md:p-8 rounded-3xl shadow-xl max-w-3xl mx-auto">
+            
+            <div class="flex justify-between items-center mb-4 px-2">
+                <span class="text-sm font-semibold text-stone-500 uppercase tracking-wide" id="ui-select-prompt">Select your ingredients:</span>
+                <button onclick="clearIngredients()" class="text-sm text-red-500 hover:text-red-700 font-bold hidden transition-colors" id="clear-btn">Clear All</button>
+            </div>
+
+            <!-- Predefined Ingredients Grid (Replaces old text input) -->
+            <div id="predefined-ingredients" class="flex flex-wrap gap-2 md:gap-3 justify-center mb-4">
+                <!-- JS will inject buttons here -->
+            </div>
+            
+            <div class="mt-2 h-6 text-sm text-red-500 text-center px-2 font-medium" id="error-msg"></div>
+
+            <button onclick="findRecipes()" class="w-full md:w-3/4 mx-auto mt-6 py-4 bg-stone-900 hover:bg-stone-800 text-white rounded-xl font-bold text-lg transition-colors shadow-lg flex items-center justify-center gap-2">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                <span id="ui-find-btn">Find Recipes</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Results Section -->
+    <main class="max-w-6xl mx-auto px-4 py-8 pb-24">
+        <h2 class="text-2xl font-bold text-stone-800 mb-6 hidden" id="results-title">Suggested Recipes</h2>
+        
+        <div id="results-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <!-- Initial state placeholder -->
+            <div class="col-span-full text-center py-12" id="initial-state">
+                <svg class="w-24 h-24 mx-auto text-orange-200 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                <p class="text-stone-500 text-lg" id="ui-awaiting">Select ingredients to see recipes...</p>
+            </div>
+        </div>
+    </main>
+
+    <!-- Recipe Details Modal -->
+    <div id="recipe-modal" class="fixed inset-0 z-50 flex items-center justify-center px-4 hidden opacity-0 transition-opacity duration-300">
+        <div class="absolute inset-0 bg-stone-900/60 backdrop-blur-sm" onclick="closeModal()"></div>
+        <div class="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col relative z-10 transform scale-95 transition-transform duration-300" id="modal-content">
+            <!-- Dynamic Content Injected Here -->
+        </div>
+    </div>
+
+    <!-- Application Logic -->
+    <script>
+        // --- 0. Register Service Worker for Android App ---
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(registration => {
+                        console.log('ServiceWorker registration successful');
+                    })
+                    .catch(err => {
+                        console.log('ServiceWorker registration failed: ', err);
+                    });
+            });
+        }
+
+        // --- 1. Dictionaries & State ---
+        const uiDict = {
+            en: {
+                brand: "Kitchen Chef",
+                title: "What's in your kitchen?",
+                subtitle: "Select ingredients you have and we'll suggest what you can cook.",
+                selectPrompt: "Select your ingredients:",
+                clearAll: "Clear All",
+                findBtn: "Find Recipes",
+                resultsTitle: "Suggested Recipes",
+                awaiting: "Select ingredients to see recipes...",
+                errorEmpty: "Please select at least one ingredient.",
+                noMatch: "No recipes found. Try selecting more ingredients!",
+                matchText: "matched",
+                missingText: "Missing",
+                viewBtn: "View Recipe",
+                stepsTitle: "Instructions",
+                ingTitle: "All Ingredients",
+                closeBtn: "Close"
+            },
+            tr: {
+                brand: "Mutfak Şefi",
+                title: "Mutfağınızda neler var?",
+                subtitle: "Malzemelerinizi seçin, bugün ne pişirebileceğinizi önerelim.",
+                selectPrompt: "Malzemelerinizi seçin:",
+                clearAll: "Tümünü Sil",
+                findBtn: "Tarif Bul",
+                resultsTitle: "Önerilen Tarifler",
+                awaiting: "Tarifleri görmek için malzeme seçin...",
+                errorEmpty: "Lütfen en az bir malzeme seçin.",
+                noMatch: "Tarif bulunamadı. Daha fazla malzeme seçmeyi deneyin!",
+                matchText: "eşleşti",
+                missingText: "Eksik",
+                viewBtn: "Tarifi Gör",
+                stepsTitle: "Hazırlanışı",
+                ingTitle: "Tüm Malzemeler",
+                closeBtn: "Kapat"
+            }
+        };
+
+        const commonIngredients = [
+            { id: 'tomato', en: 'Tomato', tr: 'Domates' },
+            { id: 'onion', en: 'Onion', tr: 'Soğan' },
+            { id: 'garlic', en: 'Garlic', tr: 'Sarımsak' },
+            { id: 'olive oil', en: 'Olive Oil', tr: 'Zeytinyağı' },
+            { id: 'salt', en: 'Salt', tr: 'Tuz' },
+            { id: 'black pepper', en: 'Black Pepper', tr: 'Karabiber' },
+            { id: 'chicken', en: 'Chicken', tr: 'Tavuk' },
+            { id: 'pasta', en: 'Pasta', tr: 'Makarna' },
+            { id: 'rice', en: 'Rice', tr: 'Pirinç' },
+            { id: 'egg', en: 'Egg', tr: 'Yumurta' },
+            { id: 'milk', en: 'Milk', tr: 'Süt' },
+            { id: 'flour', en: 'Flour', tr: 'Un' },
+            { id: 'butter', en: 'Butter', tr: 'Tereyağı' },
+            { id: 'potato', en: 'Potato', tr: 'Patates' },
+            { id: 'carrot', en: 'Carrot', tr: 'Havuç' },
+            { id: 'cheese', en: 'Cheese', tr: 'Peynir' },
+            { id: 'lemon', en: 'Lemon', tr: 'Limon' },
+            { id: 'meat', en: 'Meat', tr: 'Et / Kıyma' },
+            { id: 'bread', en: 'Bread', tr: 'Ekmek' },
+            { id: 'yogurt', en: 'Yogurt', tr: 'Yoğurt' }
+        ];
+
+        let currentLang = 'en';
+        let userIngredients = []; // Array of ingredient IDs
+
+        // --- 2. Recipe Database ---
+        const recipes = [
+            { id: 1, ingredients: ['tomato', 'onion', 'garlic', 'olive oil', 'salt', 'black pepper', 'butter'], en: { title: 'Tomato Soup', steps: 'Sauté chopped onion and garlic in olive oil and butter. Add chopped tomatoes, salt, and black pepper. Simmer until soft, then blend until smooth.' }, tr: { title: 'Domates Çorbası', steps: 'Soğan ve sarımsağı zeytinyağı ve tereyağında soteleyin. Doğranmış domates, tuz ve karabiberi ekleyin. Yumuşayana kadar pişirip blenderdan geçirin.' } },
+            { id: 2, ingredients: ['onion', 'garlic', 'butter', 'flour', 'bread', 'cheese', 'salt', 'black pepper'], en: { title: 'French Onion Soup', steps: 'Caramelize onions in butter. Stir in flour and garlic. Add water, salt, and pepper. Serve with toasted bread topped with melted cheese.' }, tr: { title: 'Fransız Soğan Çorbası', steps: 'Soğanları tereyağında karamelize edin. Un ve sarımsağı ekleyip kavurun. Su, tuz ve karabiber ekleyin. Üzerinde erimiş peynirli kızarmış ekmekle servis yapın.' } },
+            { id: 3, ingredients: ['bread', 'garlic', 'butter', 'cheese', 'salt'], en: { title: 'Cheesy Garlic Bread', steps: 'Mix softened butter with minced garlic and salt. Spread on bread slices, top with cheese, and bake until golden.' }, tr: { title: 'Peynirli Sarımsaklı Ekmek', steps: 'Yumuşamış tereyağını ezilmiş sarımsak ve tuzla karıştırın. Ekmek dilimlerine sürün, peynir ekleyip kızarana kadar fırınlayın.' } },
+            { id: 4, ingredients: ['egg', 'butter', 'salt', 'black pepper'], en: { title: 'Scrambled Eggs', steps: 'Whisk eggs with salt and pepper. Melt butter in a pan and gently scramble the eggs until cooked to your liking.' }, tr: { title: 'Çırpılmış Yumurta', steps: 'Yumurtaları tuz ve karabiberle çırpın. Tavada tereyağını eritip yumurtaları istediğiniz kıvama gelene kadar karıştırarak pişirin.' } },
+            { id: 5, ingredients: ['egg', 'cheese', 'butter', 'salt'], en: { title: 'Cheese Omelette', steps: 'Whisk eggs with salt. Pour into a hot buttered pan. Add cheese on one half and fold when set.' }, tr: { title: 'Peynirli Omlet', steps: 'Yumurtaları tuzla çırpın. Yağlanmış sıcak tavaya dökün. Bir yarısına peynir ekleyip katlayın.' } },
+            { id: 6, ingredients: ['potato', 'egg', 'onion', 'butter', 'salt'], en: { title: 'Potato Omelette', steps: 'Dice potatoes and onions, sauté in butter until soft. Pour beaten salted eggs over them and cook until firm.' }, tr: { title: 'Patatesli Omlet', steps: 'Patates ve soğanı küp doğrayıp tereyağında yumuşayana kadar soteleyin. Üzerine tuzlu çırpılmış yumurtayı döküp pişirin.' } },
+            { id: 7, ingredients: ['potato', 'milk', 'butter', 'salt'], en: { title: 'Mashed Potatoes', steps: 'Boil peeled potatoes until soft. Drain and mash with warm milk, butter, and salt until creamy.' }, tr: { title: 'Patates Püresi', steps: 'Soyulmuş patatesleri haşlayın. Suyunu süzüp ılık süt, tereyağı ve tuz ile kremsi olana kadar ezin.' } },
+            { id: 8, ingredients: ['potato', 'olive oil', 'garlic', 'salt', 'black pepper'], en: { title: 'Roasted Garlic Potatoes', steps: 'Cube potatoes. Toss with olive oil, minced garlic, salt, and pepper. Roast in the oven until crispy.' }, tr: { title: 'Sarımsaklı Fırın Patates', steps: 'Patatesleri küp küp doğrayın. Zeytinyağı, ezilmiş sarımsak, tuz ve karabiberle harmanlayıp fırında kızarana kadar pişirin.' } },
+            { id: 9, ingredients: ['potato', 'onion', 'milk', 'butter', 'salt'], en: { title: 'Creamy Potato Soup', steps: 'Sauté onions in butter. Add diced potatoes and water, boil until soft. Mash slightly, add milk and salt, simmer.' }, tr: { title: 'Kremalı Patates Çorbası', steps: 'Soğanı tereyağında soteleyin. Patates ve su ekleyip haşlayın. Biraz ezin, süt ve tuz ekleyip kaynatın.' } },
+            { id: 10, ingredients: ['potato', 'olive oil', 'salt'], en: { title: 'Homemade French Fries', steps: 'Cut potatoes into strips. Toss lightly in olive oil and salt. Bake or fry until golden and crispy.' }, tr: { title: 'Ev Yapımı Patates Kızartması', steps: 'Patatesleri çubuk doğrayın. Zeytinyağı ve tuzla hafifçe harmanlayıp fırınlayın veya kızartın.' } },
+            { id: 11, ingredients: ['chicken', 'onion', 'carrot', 'garlic', 'salt', 'black pepper'], en: { title: 'Chicken Soup', steps: 'Boil chicken with diced onions, carrots, and garlic. Shred the cooked chicken, season with salt and pepper, and serve.' }, tr: { title: 'Tavuk Suyu Çorbası', steps: 'Tavuğu soğan, havuç ve sarımsakla haşlayın. Pişen tavuğu didikleyin, tuz ve karabiberle tatlandırıp servis yapın.' } },
+            { id: 12, ingredients: ['chicken', 'potato', 'carrot', 'onion', 'olive oil', 'lemon', 'salt'], en: { title: 'Roasted Chicken & Veggies', steps: 'Toss chicken pieces, chopped potatoes, carrots, and onions with olive oil, lemon juice, and salt. Roast until cooked through.' }, tr: { title: 'Fırında Tavuklu Sebze', steps: 'Tavuk parçaları, patates, havuç ve soğanı zeytinyağı, limon suyu ve tuzla harmanlayın. Fırında pişirin.' } },
+            { id: 13, ingredients: ['chicken', 'lemon', 'garlic', 'olive oil', 'salt', 'black pepper'], en: { title: 'Lemon Garlic Chicken', steps: 'Marinate chicken in lemon juice, minced garlic, olive oil, salt, and pepper. Pan-fry or grill until nicely browned.' }, tr: { title: 'Limonlu Sarımsaklı Tavuk', steps: 'Tavuğu limon suyu, sarımsak, zeytinyağı, tuz ve karabiberle marine edin. Tavada veya ızgarada kızartın.' } },
+            { id: 14, ingredients: ['chicken', 'pasta', 'milk', 'garlic', 'cheese', 'butter', 'salt'], en: { title: 'Creamy Chicken Pasta', steps: 'Boil pasta. Sauté chicken and garlic in butter. Add milk and cheese to create a sauce, mix with pasta and salt.' }, tr: { title: 'Kremalı Tavuklu Makarna', steps: 'Makarnayı haşlayın. Tavuk ve sarımsağı tereyağında soteleyin. Süt ve peynirle sos yapıp makarna ve tuzla karıştırın.' } },
+            { id: 15, ingredients: ['pasta', 'tomato', 'garlic', 'olive oil', 'cheese', 'salt'], en: { title: 'Tomato Basil Pasta', steps: 'Boil pasta. Sauté garlic in olive oil, add chopped tomatoes and salt to make a sauce. Toss with pasta and top with cheese.' }, tr: { title: 'Domatesli Makarna', steps: 'Makarnayı haşlayın. Sarımsağı zeytinyağında soteleyip domates ve tuz ekleyerek sos yapın. Makarnayla karıştırıp peynir ekleyin.' } },
+            { id: 16, ingredients: ['pasta', 'milk', 'butter', 'flour', 'cheese', 'salt'], en: { title: 'Macaroni and Cheese', steps: 'Boil pasta. Make a roux with butter and flour, whisk in milk until thick. Melt cheese into the sauce and mix with pasta.' }, tr: { title: 'Peynirli Makarna (Mac & Cheese)', steps: 'Makarnayı haşlayın. Tereyağı ve unla meyane yapıp sütü ekleyin. Peyniri sosta eritip makarnayla birleştirin.' } },
+            { id: 17, ingredients: ['pasta', 'garlic', 'butter', 'cheese', 'salt'], en: { title: 'Garlic Butter Pasta', steps: 'Boil pasta. Melt butter, sauté minced garlic. Toss pasta in garlic butter with salt and generously sprinkle with cheese.' }, tr: { title: 'Sarımsaklı Tereyağlı Makarna', steps: 'Makarnayı haşlayın. Tereyağında sarımsağı soteleyin. Makarnayı tuz ve peynir ekleyerek bu sosta çevirin.' } },
+            { id: 18, ingredients: ['pasta', 'meat', 'tomato', 'onion', 'garlic', 'olive oil', 'salt'], en: { title: 'Spaghetti Bolognese', steps: 'Boil pasta. Sauté onions, garlic, and meat in olive oil. Add tomatoes and salt, simmer. Serve sauce over pasta.' }, tr: { title: 'Bolonez Soslu Makarna', steps: 'Makarnayı haşlayın. Soğan, sarımsak ve kıymayı zeytinyağında kavurun. Domates ve tuz ekleyip pişirin. Makarnanın üzerinde servis yapın.' } },
+            { id: 19, ingredients: ['meat', 'onion', 'garlic', 'bread', 'egg', 'salt', 'black pepper'], en: { title: 'Classic Meatballs', steps: 'Soak bread in water and squeeze. Mix with ground meat, grated onion, garlic, egg, salt, and pepper. Shape into balls and fry.' }, tr: { title: 'Klasik Köfte', steps: 'Ekmeği ıslatıp sıkın. Kıyma, rendelenmiş soğan, sarımsak, yumurta, tuz ve karabiberle yoğurun. Şekil verip kızartın.' } },
+            { id: 20, ingredients: ['meat', 'bread', 'onion', 'tomato', 'cheese', 'salt'], en: { title: 'Cheeseburger', steps: 'Form meat into patties with salt and grill. Place cooked patties on bread, top with cheese, sliced onion, and tomato.' }, tr: { title: 'Çizburger', steps: 'Kıymayı tuzla yoğurup köfte yapın ve pişirin. Ekmeğin arasına köfte, peynir, soğan ve domates dilimleri koyarak servis yapın.' } },
+            { id: 21, ingredients: ['meat', 'potato', 'onion', 'tomato', 'olive oil', 'salt'], en: { title: 'Meat and Potato Stew', steps: 'Brown meat in olive oil. Add chopped onions, potatoes, and tomatoes. Season with salt, add a little water, and simmer until tender.' }, tr: { title: 'Etli Patates Yemeği', steps: 'Eti zeytinyağında mühürleyin. Soğan, patates ve domatesi ekleyin. Tuz ve az su ilave edip yumuşayana kadar pişirin.' } },
+            { id: 22, ingredients: ['meat', 'carrot', 'potato', 'onion', 'olive oil', 'salt'], en: { title: 'Beef & Root Veggie Stew', steps: 'Sauté meat and onions. Add chopped carrots and potatoes. Cover with water, add salt, and slow cook until everything is tender.' }, tr: { title: 'Etli Sebze Yahnisi', steps: 'Et ve soğanı soteleyin. Havuç ve patatesi ekleyin. Üzerine su ve tuz ilave edip kısık ateşte yumuşayana kadar pişirin.' } },
+            { id: 23, ingredients: ['rice', 'butter', 'salt'], en: { title: 'Classic Rice Pilaf', steps: 'Wash rice well. Melt butter in a pot, toast the rice briefly. Add water and salt, cover, and cook on low heat until water is absorbed.' }, tr: { title: 'Sade Pirinç Pilavı', steps: 'Pirinci yıkayın. Tereyağında pirinci hafifçe kavurun. Su ve tuz ekleyip kapağını kapatın, suyunu çekene kadar pişirin.' } },
+            { id: 24, ingredients: ['chicken', 'rice', 'butter', 'salt', 'black pepper'], en: { title: 'Chicken and Rice', steps: 'Boil chicken and shred it. Make rice pilaf using butter and the chicken broth. Serve rice topped with shredded chicken and black pepper.' }, tr: { title: 'Tavuklu Pilav', steps: 'Tavuğu haşlayıp didikleyin. Tavuk suyu ve tereyağı ile pilav yapın. Pilavın üzerine tavuk ve karabiber ekleyerek servis yapın.' } },
+            { id: 25, ingredients: ['rice', 'lemon', 'butter', 'salt'], en: { title: 'Lemon Rice', steps: 'Cook rice with butter, salt, and water. Once cooked, stir in freshly squeezed lemon juice for a zesty flavor.' }, tr: { title: 'Limonlu Pilav', steps: 'Pirinci tereyağı, tuz ve su ile pişirin. Piştikten sonra taze sıkılmış limon suyu ekleyip karıştırın.' } },
+            { id: 26, ingredients: ['rice', 'tomato', 'butter', 'salt'], en: { title: 'Tomato Rice', steps: 'Grate tomatoes and simmer them in butter. Add washed rice, water, and salt. Cook until liquid is absorbed.' }, tr: { title: 'Domatesli Pilav', steps: 'Domatesleri rendeleyip tereyağında pişirin. Yıkanmış pirinç, su ve tuz ekleyip suyunu çekene kadar pişirin.' } },
+            { id: 27, ingredients: ['rice', 'carrot', 'butter', 'salt'], en: { title: 'Carrot Rice', steps: 'Grate carrots and sauté in butter until soft. Add rice, toast slightly, then add water and salt. Cook covered.' }, tr: { title: 'Havuçlu Pilav', steps: 'Havuçları rendeleyip tereyağında yumuşayana kadar soteleyin. Pirinci ekleyip kavurun, su ve tuz ekleyerek pişirin.' } },
+            { id: 28, ingredients: ['yogurt', 'rice', 'egg', 'flour', 'butter', 'salt'], en: { title: 'Yayla Soup (Yogurt Soup)', steps: 'Boil rice in water. Whisk yogurt, egg, and flour together. Temper this mixture with hot soup water, then stir back into the pot. Drizzle with melted butter.' }, tr: { title: 'Yayla Çorbası', steps: 'Pirinci suda haşlayın. Yoğurt, yumurta ve unu çırpın. Çorbanın suyuyla ılıtıp tencereye ekleyin. Üzerine tereyağı gezdirin.' } },
+            { id: 29, ingredients: ['yogurt', 'garlic', 'salt', 'olive oil'], en: { title: 'Garlic Yogurt Dip', steps: 'Minced garlic mixed into fresh yogurt with a pinch of salt. Drizzle with high-quality olive oil before serving.' }, tr: { title: 'Sarımsaklı Yoğurt (Haydari Tarzı)', steps: 'Ezilmiş sarımsağı yoğurt ve tuzla karıştırın. Servis etmeden önce üzerine zeytinyağı gezdirin.' } },
+            { id: 30, ingredients: ['yogurt', 'salt'], en: { title: 'Ayran (Yogurt Drink)', steps: 'Vigorously whisk yogurt with cold water and salt until perfectly smooth and frothy.' }, tr: { title: 'Ayran', steps: 'Yoğurdu soğuk su ve tuz ile pürüzsüz ve köpüklü olana kadar iyice çırpın.' } },
+            { id: 31, ingredients: ['flour', 'butter', 'cheese', 'yogurt', 'egg', 'salt'], en: { title: 'Cheese Pastry (Börek)', steps: 'Make dough with flour, yogurt, egg, butter, and salt. Roll out, fill with crumbled cheese, fold, and bake until golden.' }, tr: { title: 'Peynirli Poğaça/Börek', steps: 'Un, yoğurt, yumurta, tereyağı ve tuzla hamur yapın. Açıp içine peynir koyun, kapatıp fırında kızarana kadar pişirin.' } },
+            { id: 32, ingredients: ['flour', 'salt', 'olive oil'], en: { title: 'Flatbread', steps: 'Mix flour, salt, water, and a splash of olive oil to form a dough. Roll out flat and cook on a hot dry pan on both sides.' }, tr: { title: 'Lavaş / Yassı Ekmek', steps: 'Un, tuz, su ve biraz zeytinyağı ile hamur yoğurun. İnce açıp sıcak ve kuru tavada arkalı önlü pişirin.' } },
+            { id: 33, ingredients: ['flour', 'milk', 'egg', 'butter', 'salt'], en: { title: 'Pancakes', steps: 'Whisk flour, milk, egg, melted butter, and a pinch of salt. Pour ladlefuls onto a hot pan, flip when bubbles appear.' }, tr: { title: 'Pancake', steps: 'Un, süt, yumurta, eritilmiş tereyağı ve bir tutam tuzu çırpın. Sıcak tavaya kepçeyle döküp göz göz olunca çevirin.' } },
+            { id: 34, ingredients: ['flour', 'milk', 'egg', 'butter', 'salt'], en: { title: 'Crepes', steps: 'Make a very thin batter with flour, milk, egg, and salt. Pour a thin layer on a hot buttered pan, cook briefly on both sides.' }, tr: { title: 'Krep', steps: 'Un, süt, yumurta ve tuzla akışkan bir hamur yapın. Yağlanmış sıcak tavaya ince bir tabaka döküp arkalı önlü pişirin.' } },
+            { id: 35, ingredients: ['carrot', 'onion', 'potato', 'butter', 'milk', 'salt'], en: { title: 'Creamy Carrot Soup', steps: 'Sauté onions, diced carrots, and potatoes in butter. Boil until soft, mash, and stir in milk and salt for creaminess.' }, tr: { title: 'Kremalı Havuç Çorbası', steps: 'Soğan, havuç ve patatesi tereyağında soteleyin. Haşlayıp ezin, kıvam için süt ve tuz ekleyin.' } },
+            { id: 36, ingredients: ['carrot', 'olive oil', 'salt'], en: { title: 'Roasted Carrots', steps: 'Peel and cut carrots into sticks. Toss with olive oil and salt. Roast in the oven until tender and caramelized.' }, tr: { title: 'Fırın Havuç', steps: 'Havuçları soyup çubuk doğrayın. Zeytinyağı ve tuzla harmanlayıp karamelize olana kadar fırınlayın.' } },
+            { id: 37, ingredients: ['chicken', 'flour', 'egg', 'bread', 'salt', 'olive oil'], en: { title: 'Chicken Nuggets', steps: 'Cut chicken into bite-sized pieces. Coat in seasoned flour, dip in beaten egg, then roll in breadcrumbs. Fry in olive oil.' }, tr: { title: 'Tavuk Nugget', steps: 'Tavuğu lokmalık kesin. Önce tuzlu una, sonra çırpılmış yumurtaya, son olarak ufalanmış ekmeğe bulayıp zeytinyağında kızartın.' } },
+            { id: 38, ingredients: ['chicken', 'bread', 'tomato', 'cheese', 'salt'], en: { title: 'Chicken Sandwich', steps: 'Grill salted chicken. Slice and place in bread along with fresh tomato slices and cheese.' }, tr: { title: 'Tavuklu Sandviç', steps: 'Tuzlanmış tavuğu ızgarada pişirin. Dilimleyip domates ve peynirle birlikte ekmeğin arasına koyun.' } },
+            { id: 39, ingredients: ['bread', 'cheese', 'butter'], en: { title: 'Grilled Cheese', steps: 'Butter the outsides of two bread slices. Place cheese between them and pan-fry until bread is golden and cheese is melted.' }, tr: { title: 'Kaşarlı Tost', steps: 'İki dilim ekmeğin dış yüzeylerini yağlayın. Arasına peynir koyup tavada peynir eriyene kadar kızartın.' } },
+            { id: 40, ingredients: ['meat', 'bread', 'onion', 'tomato', 'salt'], en: { title: 'Steak/Meat Sandwich', steps: 'Cook sliced meat with salt. Serve inside bread with fresh sliced onions and juicy tomatoes.' }, tr: { title: 'Etli Sandviç', steps: 'Dilimlenmiş eti tuzla pişirin. Taze soğan ve domates dilimleriyle birlikte ekmek arasında servis yapın.' } },
+            { id: 41, ingredients: ['egg', 'yogurt', 'lemon', 'salt'], en: { title: 'Egg Salad', steps: 'Hard-boil eggs, then chop them. Mix with yogurt, a squeeze of lemon juice, and salt.' }, tr: { title: 'Yumurtalı Salata', steps: 'Yumurtaları katı haşlayıp doğrayın. Yoğurt, biraz limon suyu ve tuz ile karıştırın.' } },
+            { id: 42, ingredients: ['potato', 'onion', 'lemon', 'olive oil', 'salt'], en: { title: 'Potato Salad', steps: 'Boil and cube potatoes. Thinly slice onions. Toss together with olive oil, lemon juice, and salt.' }, tr: { title: 'Patates Salatası', steps: 'Patatesleri haşlayıp küp doğrayın. İnce kıyılmış soğan, zeytinyağı, limon ve tuzla harmanlayın.' } },
+            { id: 43, ingredients: ['tomato', 'onion', 'olive oil', 'lemon', 'salt'], en: { title: 'Tomato Onion Salad', steps: 'Dice tomatoes and onions. Dress simply with olive oil, a splash of lemon juice, and salt.' }, tr: { title: 'Domates Soğan Salatası', steps: 'Domates ve soğanı doğrayın. Zeytinyağı, limon ve tuz ile tatlandırıp servis yapın.' } },
+            { id: 44, ingredients: ['carrot', 'yogurt', 'garlic', 'salt'], en: { title: 'Carrot Tarator', steps: 'Grate carrots and sauté briefly to soften. Mix with garlic-infused yogurt and salt. Serve cold.' }, tr: { title: 'Havuç Tarator', steps: 'Havuçları rendeleyip hafifçe soteleyin. Sarımsaklı yoğurt ve tuzla karıştırıp soğuk servis yapın.' } },
+            { id: 45, ingredients: ['pasta', 'yogurt', 'garlic', 'butter', 'salt'], en: { title: 'Yogurt Garlic Pasta', steps: 'Boil pasta and drain. Mix with garlic yogurt and salt. Drizzle with melted butter.' }, tr: { title: 'Sarımsaklı Yoğurtlu Makarna', steps: 'Makarnayı haşlayıp süzün. Sarımsaklı yoğurt ve tuzla karıştırın. Üzerine eritilmiş tereyağı gezdirin.' } },
+            { id: 46, ingredients: ['pasta', 'meat', 'yogurt', 'garlic', 'butter', 'salt'], en: { title: 'Mantı-style Pasta', steps: 'Boil pasta. Top with cooked ground meat, generously spoon over garlic yogurt, and finish with sizzling butter.' }, tr: { title: 'Yalancı Mantı', steps: 'Makarnayı haşlayın. Üzerine kavrulmuş kıyma ve sarımsaklı yoğurt döküp, kızdırılmış tereyağı gezdirin.' } },
+            { id: 47, ingredients: ['potato', 'butter', 'cheese', 'salt'], en: { title: 'Kumpir (Baked Potato)', steps: 'Bake a whole large potato. Slice open, fluff the inside with butter, cheese, and salt until deeply creamy.' }, tr: { title: 'Kumpir', steps: 'Büyük bir patatesi fırınlayın. Ortasını yarıp tereyağı, kaşar ve tuzla içini püre haline gelene kadar karıştırın.' } },
+            { id: 48, ingredients: ['chicken', 'cheese', 'olive oil', 'garlic', 'salt'], en: { title: 'Cheesy Garlic Chicken', steps: 'Pan-fry chicken in olive oil with minced garlic and salt. In the last minute, cover with cheese until melted.' }, tr: { title: 'Peynirli Sarımsaklı Tavuk', steps: 'Tavuğu zeytinyağında sarımsak ve tuzla pişirin. Son dakika üzerine peynir koyup eriyene kadar bekleyin.' } },
+            { id: 49, ingredients: ['chicken', 'lemon', 'butter', 'garlic', 'salt'], en: { title: 'Lemon Butter Chicken', steps: 'Sauté chicken in butter and garlic. Deglaze the pan with lemon juice and let the sauce thicken and coat the chicken. Season with salt.' }, tr: { title: 'Limonlu Tereyağlı Tavuk', steps: 'Tavuğu tereyağı ve sarımsakla soteleyin. Limon suyu ekleyip sosun koyulaşıp tavuğu kaplamasını sağlayın. Tuz ekleyin.' } },
+            { id: 50, ingredients: ['meat', 'bread', 'egg', 'onion', 'garlic', 'tomato', 'salt'], en: { title: 'Meatloaf', steps: 'Mix meat, soaked bread, egg, diced onion, garlic, and salt. Shape into a loaf, top with sliced tomatoes, and bake.' }, tr: { title: 'Dalyan Köfte / Rulo Köfte', steps: 'Kıyma, ıslak ekmek, yumurta, soğan, sarımsak ve tuzu yoğurup somun şekli verin. Üzerine domates dilimleri dizip fırınlayın.' } }
+        ];
+
+        // --- 3. UI Functions ---
+        function updateUI() {
+            document.getElementById('ui-brand').innerText = uiDict[currentLang].brand;
+            document.getElementById('ui-title').innerText = uiDict[currentLang].title;
+            document.getElementById('ui-subtitle').innerText = uiDict[currentLang].subtitle;
+            document.getElementById('ui-select-prompt').innerText = uiDict[currentLang].selectPrompt;
+            document.getElementById('clear-btn').innerText = uiDict[currentLang].clearAll;
+            document.getElementById('ui-find-btn').innerText = uiDict[currentLang].findBtn;
+            document.getElementById('results-title').innerText = uiDict[currentLang].resultsTitle;
+            
+            let awaitingEl = document.getElementById('ui-awaiting');
+            if(awaitingEl) awaitingEl.innerText = uiDict[currentLang].awaiting;
+
+            // Re-render buttons
+            const btnEn = document.getElementById('btn-en');
+            const btnTr = document.getElementById('btn-tr');
+            if (currentLang === 'en') {
+                btnEn.className = "px-4 py-1 rounded-full text-sm font-medium transition-colors bg-orange-500 text-white";
+                btnTr.className = "px-4 py-1 rounded-full text-sm font-medium transition-colors text-stone-500 hover:text-orange-500 hover:bg-orange-50";
+            } else {
+                btnTr.className = "px-4 py-1 rounded-full text-sm font-medium transition-colors bg-orange-500 text-white";
+                btnEn.className = "px-4 py-1 rounded-full text-sm font-medium transition-colors text-stone-500 hover:text-orange-500 hover:bg-orange-50";
+            }
+
+            renderIngredients();
+
+            // Clear results on lang switch
+            document.getElementById('results-grid').innerHTML = `
+                <div class="col-span-full text-center py-12" id="initial-state">
+                    <svg class="w-24 h-24 mx-auto text-orange-200 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                    <p class="text-stone-500 text-lg" id="ui-awaiting">${uiDict[currentLang].awaiting}</p>
+                </div>
+            `;
+            document.getElementById('results-title').classList.add('hidden');
+        }
+
+        function setLanguage(lang) {
+            currentLang = lang;
+            updateUI();
+        }
+
+        // --- 4. Ingredient Selection Logic ---
+        function renderIngredients() {
+            const container = document.getElementById('predefined-ingredients');
+            const clearBtn = document.getElementById('clear-btn');
+            
+            container.innerHTML = ""; // Clear existing
+
+            if (userIngredients.length > 0) {
+                clearBtn.classList.remove('hidden');
+            } else {
+                clearBtn.classList.add('hidden');
+            }
+
+            commonIngredients.forEach(ing => {
+                const isSelected = userIngredients.includes(ing.id);
+                const btn = document.createElement('button');
+                
+                if (isSelected) {
+                    // Selected state styling
+                    btn.className = "px-4 py-2 bg-orange-500 text-white rounded-xl text-sm font-semibold shadow-md transform transition-transform scale-105 border border-orange-600 focus:outline-none";
+                } else {
+                    // Unselected state styling
+                    btn.className = "px-4 py-2 bg-white text-stone-600 hover:bg-orange-50 hover:text-orange-600 border border-stone-200 rounded-xl text-sm font-medium transition-colors shadow-sm focus:outline-none";
+                }
+                
+                btn.innerText = ing[currentLang];
+                btn.onclick = () => toggleIngredient(ing.id);
+                
+                container.appendChild(btn);
+            });
+        }
+
+        function toggleIngredient(id) {
+            document.getElementById('error-msg').innerText = ""; // Clear errors
+            const index = userIngredients.indexOf(id);
+            if (index === -1) {
+                userIngredients.push(id); // Select
+            } else {
+                userIngredients.splice(index, 1); // Deselect
+            }
+            renderIngredients();
+        }
+
+        function clearIngredients() {
+            userIngredients = [];
+            renderIngredients();
+            document.getElementById('error-msg').innerText = "";
+        }
+
+        // --- 5. Matching & Rendering Logic ---
+        function findRecipes() {
+            if (userIngredients.length === 0) {
+                document.getElementById('error-msg').innerText = uiDict[currentLang].errorEmpty;
+                return;
+            }
+
+            let scoredRecipes = recipes.map(recipeObj => {
+                let recipeData = recipeObj[currentLang];
+                let matched = [];
+                let missing = [];
+
+                recipeObj.ingredients.forEach(reqKey => {
+                    if (userIngredients.includes(reqKey)) matched.push(reqKey);
+                    else missing.push(reqKey);
+                });
+
+                return {
+                    id: recipeObj.id,
+                    recipeData: recipeData,
+                    matchCount: matched.length,
+                    totalCount: recipeObj.ingredients.length,
+                    matched,
+                    missing
+                };
+            });
+
+            // Filter out recipes with 0 matches
+            let results = scoredRecipes.filter(r => r.matchCount > 0);
+
+            // Sort: highest match count first, then fewest missing
+            results.sort((a, b) => {
+                if (b.matchCount !== a.matchCount) return b.matchCount - a.matchCount;
+                return a.missing.length - b.missing.length;
+            });
+
+            renderResults(results);
+        }
+
+        function renderResults(results) {
+            const grid = document.getElementById('results-grid');
+            document.getElementById('results-title').classList.remove('hidden');
+
+            grid.innerHTML = "";
+
+            if (results.length === 0) {
+                grid.innerHTML = `
+                    <div class="col-span-full text-center py-12 bg-white rounded-3xl shadow-sm border border-stone-100">
+                        <svg class="w-16 h-16 mx-auto text-stone-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        <p class="text-stone-500 text-lg">${uiDict[currentLang].noMatch}</p>
+                    </div>
+                `;
+                return;
+            }
+
+            const gradients = [
+                'from-orange-400 to-amber-500', 'from-rose-400 to-red-500', 'from-yellow-400 to-orange-500',
+                'from-emerald-400 to-teal-500', 'from-blue-400 to-indigo-500', 'from-violet-400 to-purple-500'
+            ];
+
+            results.forEach((item, index) => {
+                const percent = Math.round((item.matchCount / item.totalCount) * 100);
+                const gradient = gradients[item.id % gradients.length];
+                
+                // Translate missing keys to current language display text
+                let missingDisplay = item.missing.map(key => {
+                    let ing = commonIngredients.find(i => i.id === key);
+                    return ing ? ing[currentLang] : key;
+                }).join(', ');
+
+                let displayMissing = missingDisplay.length > 50 ? missingDisplay.substring(0, 50) + '...' : missingDisplay;
+
+                const card = document.createElement('div');
+                card.className = "recipe-card bg-white rounded-3xl overflow-hidden shadow-md border border-stone-100 flex flex-col h-full";
+                
+                card.innerHTML = `
+                    <div class="h-32 bg-gradient-to-br ${gradient} p-6 flex items-end relative overflow-hidden">
+                        <div class="absolute inset-0 bg-black/10"></div>
+                        <h3 class="text-2xl font-bold text-white relative z-10 truncate w-full shadow-sm">${item.recipeData.title}</h3>
+                    </div>
+                    <div class="p-6 flex flex-col flex-1">
+                        <div class="flex justify-between items-center mb-4">
+                            <span class="text-xs font-bold px-3 py-1 bg-stone-100 text-stone-600 rounded-full">
+                                ${item.matchCount} / ${item.totalCount} ${uiDict[currentLang].matchText}
+                            </span>
+                            <span class="text-sm font-bold ${percent >= 75 ? 'text-green-500' : percent >= 50 ? 'text-orange-500' : 'text-red-500'}">${percent}%</span>
+                        </div>
+                        
+                        <div class="mb-6 flex-1">
+                            ${item.missing.length > 0 ? `
+                                <p class="text-xs font-semibold text-red-500 uppercase tracking-wider mb-1">${uiDict[currentLang].missingText}:</p>
+                                <p class="text-sm text-stone-500 leading-relaxed">${displayMissing}</p>
+                            ` : `
+                                <div class="flex items-center gap-2 text-green-600 font-medium text-sm">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                                    You have everything!
+                                </div>
+                            `}
+                        </div>
+
+                        <button onclick="openModal(${item.id})" class="w-full py-2.5 bg-orange-50 text-orange-600 hover:bg-orange-500 hover:text-white rounded-xl font-semibold transition-colors mt-auto border border-orange-100 hover:border-orange-500">
+                            ${uiDict[currentLang].viewBtn}
+                        </button>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        // --- 6. Modal Logic ---
+        function openModal(recipeId) {
+            const recipeObj = recipes.find(r => r.id === recipeId);
+            const recipeData = recipeObj[currentLang];
+            const modal = document.getElementById('recipe-modal');
+            const content = document.getElementById('modal-content');
+            
+            // Check matches based on keys
+            let matchedKeys = recipeObj.ingredients.filter(key => userIngredients.includes(key));
+
+            const gradients = [
+                'from-orange-400 to-amber-500', 'from-rose-400 to-red-500', 'from-yellow-400 to-orange-500',
+                'from-emerald-400 to-teal-500', 'from-blue-400 to-indigo-500', 'from-violet-400 to-purple-500'
+            ];
+            const gradient = gradients[recipeId % gradients.length];
+
+            content.innerHTML = `
+                <div class="h-48 bg-gradient-to-br ${gradient} p-8 flex items-end relative">
+                    <button onclick="closeModal()" class="absolute top-4 right-4 text-white/80 hover:text-white bg-black/20 hover:bg-black/40 p-2 rounded-full transition-colors">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                    <h2 class="text-3xl md:text-4xl font-bold text-white drop-shadow-md">${recipeData.title}</h2>
+                </div>
+                <div class="p-8 overflow-y-auto hide-scroll" style="max-height: 60vh;">
+                    
+                    <div class="mb-8">
+                        <h3 class="text-lg font-bold text-stone-800 mb-3 flex items-center gap-2">
+                            <svg class="w-5 h-5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>
+                            ${uiDict[currentLang].ingTitle}
+                        </h3>
+                        <div class="flex flex-wrap gap-2">
+                            ${recipeObj.ingredients.map(key => {
+                                let isHave = matchedKeys.includes(key);
+                                let ingObj = commonIngredients.find(i => i.id === key);
+                                let displayStr = ingObj ? ingObj[currentLang] : key;
+                                return `<span class="px-3 py-1.5 rounded-lg text-sm font-medium ${isHave ? 'bg-green-100 text-green-800 border border-green-200' : 'bg-stone-100 text-stone-600 border border-stone-200'}">
+                                    ${isHave ? '✓ ' : ''}${displayStr}
+                                </span>`;
+                            }).join('')}
+                        </div>
+                    </div>
+
+                    <div>
+                        <h3 class="text-lg font-bold text-stone-800 mb-3 flex items-center gap-2">
+                            <svg class="w-5 h-5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg>
+                            ${uiDict[currentLang].stepsTitle}
+                        </h3>
+                        <p class="text-stone-600 leading-relaxed text-lg">${recipeData.steps}</p>
+                    </div>
+
+                </div>
+            `;
+
+            modal.classList.remove('hidden');
+            // small delay for transition
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                content.classList.remove('scale-95');
+            }, 10);
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('recipe-modal');
+            const content = document.getElementById('modal-content');
+            
+            modal.classList.add('opacity-0');
+            content.classList.add('scale-95');
+            
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 300); // match transition duration
+        }
+
+        // --- CSS Animation Injection ---
+        const style = document.createElement('style');
+        style.innerHTML = `
+            @keyframes fadeIn {
+                from { opacity: 0; transform: scale(0.95); }
+                to { opacity: 1; transform: scale(1); }
+            }
+        `;
+        document.head.appendChild(style);
+
+        // Initialize UI on load
+        window.onload = () => {
+            updateUI();
+        };
+
+    </script>
+</body>
+</html>
